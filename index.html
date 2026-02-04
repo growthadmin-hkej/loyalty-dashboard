@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscriber Engagement Segmentation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#f8f9fb;--card:#fff;--card2:#f3f4f7;--border:#e2e5ea;
+    --text:#1a1e2a;--muted:#5f6a7d;--accent:#d48a10;--accent2:#c07a0e;
+    --dormant:#dc2626;--low:#d97706;--moderate:#4f46e5;--active:#059669;--power:#2563eb;
+    --new-user:#7c3aed;--old-user:#64748b;
+    --font:'Inter','Noto Sans TC',-apple-system,sans-serif;--mono:'JetBrains Mono',monospace;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .container{max-width:960px;margin:0 auto;padding:0 28px}
+  .header{background:linear-gradient(170deg,#eef0f4,#f8f9fb);border-bottom:1px solid var(--border);padding:40px 0 0}
+  .header-inner{position:relative}
+  .header-tag{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .header-tag::before{content:'';display:block;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .header h1{font-size:30px;font-weight:900;margin-bottom:6px}
+  .header p{color:var(--muted);font-size:14px;margin-bottom:24px}
+  .tabs{display:flex;gap:2px}
+  .tab{padding:10px 22px;font-size:13px;font-weight:500;color:var(--muted);background:0 0;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;transition:all .2s;font-family:var(--font)}
+  .tab:hover{color:var(--text)}
+  .tab.active{background:var(--card);color:var(--accent);border-color:var(--border);font-weight:700;position:relative;bottom:-1px}
+  .content{padding:28px 0 60px}
+  .tab-panel{display:none}.tab-panel.active{display:block}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .card h3{font-size:16px;font-weight:700;margin-bottom:4px}
+  .card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card p{color:var(--muted);font-size:13px;line-height:1.8}
+  .stats{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 22px;flex:1 1 0;min-width:120px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .stat-label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .stat-value{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--accent)}
+  .stat-sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .tier-bars{display:flex;flex-direction:column;gap:8px}
+  .tier-row{display:flex;align-items:center;gap:14px}
+  .tier-label{width:90px;text-align:right;flex-shrink:0}
+  .tier-name{font-weight:700;font-size:13px}
+  .tier-range{font-size:11px;color:var(--muted)}
+  .tier-bar-wrap{flex:1;background:rgba(0,0,0,.04);border-radius:6px;height:40px;position:relative;overflow:hidden}
+  .tier-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:12px;transition:width .6s ease}
+  .tier-bar span{font-size:12px;font-weight:600;color:#fff;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .tier-pct{width:55px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .contrib-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .contrib-label{width:80px;font-size:12px;color:var(--muted);text-align:right}
+  .contrib-bar-wrap{flex:1;background:rgba(0,0,0,.04);border-radius:4px;height:22px;overflow:hidden}
+  .contrib-bar{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px}
+  .contrib-bar span{font-size:10px;font-weight:600;color:#fff}
+  .contrib-pct{width:50px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .seg-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .seg-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;border-top:3px solid;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .seg-header{display:flex;justify-content:space-between;margin-bottom:10px}
+  .seg-icon{font-size:22px;margin-bottom:4px}
+  .seg-name{font-size:15px;font-weight:700}
+  .seg-name-en{font-size:11px;color:var(--muted)}
+  .seg-count{font-size:24px;font-weight:700;font-family:var(--mono)}
+  .seg-meta{font-size:11px;color:var(--muted)}
+  .seg-action{color:var(--accent);font-weight:600;font-size:13px;margin-bottom:8px}
+  .seg-desc{font-size:12px;color:var(--muted);line-height:1.7}
+  .seg-footer{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+  .seg-footer .meta{font-size:11px;color:var(--muted)}
+  .highlight{border-radius:10px;padding:20px;margin-bottom:18px}
+  .highlight.green{background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.2)}
+  .highlight.amber{background:rgba(212,138,16,.06);border:1px solid rgba(212,138,16,.2)}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+  .indicator{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .indicator.new{background:rgba(124,58,237,.1);color:var(--new-user);border:1px solid rgba(124,58,237,.25)}
+  .indicator.old{background:rgba(100,116,139,.1);color:var(--old-user);border:1px solid rgba(100,116,139,.25)}
+  .indicator.tier-i{background:rgba(79,70,229,.08);color:var(--moderate);border:1px solid rgba(79,70,229,.2)}
+  .upload-zone{border:2px dashed var(--border);border-radius:16px;padding:48px 32px;text-align:center;margin-bottom:24px;transition:all .2s;cursor:pointer;background:var(--card)}
+  .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(212,138,16,.03)}
+  .upload-zone h2{font-size:20px;font-weight:700;margin-bottom:8px}
+  .upload-zone p{color:var(--muted);font-size:14px}
+  .upload-zone input{display:none}
+  .file-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--active);color:var(--active);background:rgba(5,150,105,.06);margin-top:16px}
+  .month-selector{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+  .month-selector label{font-size:13px;color:var(--muted);font-weight:600}
+  .month-btn{padding:6px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;transition:all .15s;font-family:var(--mono)}
+  .month-btn:hover{border-color:var(--accent);color:var(--text)}
+  .month-btn.active{border-color:var(--accent);background:rgba(212,138,16,.08);color:var(--accent)}
+  .migration-selectors{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .migration-selectors select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-family:var(--mono);font-size:13px;color:var(--text);cursor:pointer}
+  .migration-selectors select:focus{outline:none;border-color:var(--accent)}
+  .migration-selectors .arrow{font-size:18px;color:var(--accent);font-weight:700}
+  .mig-table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+  .mig-table th{padding:8px;border-bottom:2px solid var(--border);color:var(--accent);font-weight:600;font-size:11px;text-align:center;letter-spacing:.3px}
+  .mig-table th:first-child{text-align:left}
+  .mig-table td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .mig-table td:first-child{text-align:left;color:var(--text);font-weight:600;font-family:var(--font)}
+  .mig-table td.highlight-cell{background:rgba(212,138,16,.08);color:var(--text);font-weight:600}
+  .mig-table td.up{color:var(--active)}
+  .mig-table td.down{color:var(--dormant)}
+  .empty-state{color:var(--muted);text-align:center;padding:60px 0}
+  .lang-toggle{position:absolute;right:0;top:4px;padding:6px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);transition:all .15s;font-family:var(--font);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .lang-toggle:hover{border-color:var(--accent);color:var(--accent)}
+  .dl-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card2);color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font)}
+  .dl-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(212,138,16,.06)}
+  @media(max-width:700px){.stats,.two-col,.seg-grid{grid-template-columns:1fr}.stats{flex-direction:column}.lang-toggle{position:static;margin-bottom:12px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container header-inner">
+    <button class="lang-toggle" id="langToggle" onclick="toggleLang()">中文</button>
+    <div class="header-tag">Subscriber Segmentation Report</div>
+    <h1 id="hTitle"></h1>
+    <p id="hSub"></p>
+    <div class="tabs" id="tabBar"></div>
+  </div>
+</div>
+
+<div class="container content">
+  <div id="tab-upload" class="tab-panel active"><div id="uploadPane"></div></div>
+  <div id="tab-overview" class="tab-panel">
+    <div id="ov-month-sel"></div>
+    <div id="ov-content"></div>
+  </div>
+  <div id="tab-actions" class="tab-panel">
+    <div id="ac-month-sel"></div>
+    <div id="ac-content"></div>
+  </div>
+  <div id="tab-migration" class="tab-panel">
+    <div id="mig-selectors"></div>
+    <div id="mig-content"></div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   CONFIG
+   ================================================================ */
+const TIER_BREAKS = [10, 70, 300, 1000];
+const TIER_NAMES = ['Dormant','Low','Moderate','Active','Power'];
+const TIER_RANGES = ['≤ 10 PV','11–70 PV','71–300 PV','301–1,000 PV','1,001+ PV'];
+const TIER_COLORS = ['var(--dormant)','var(--low)','var(--moderate)','var(--active)','var(--power)'];
+const TIER_GRADS = ['linear-gradient(90deg,#dc2626,#dc2626aa)','linear-gradient(90deg,#d97706,#d97706aa)','linear-gradient(90deg,#4f46e5,#4f46e5aa)','linear-gradient(90deg,#059669,#059669aa)','linear-gradient(90deg,#2563eb,#2563ebaa)'];
+const NEW_YEAR = 2025;
+
+/* ================================================================
+   STATE
+   ================================================================ */
+let lang='en', monthlyData={}, sortedMonths=[], curTab='upload';
+let selMo={overview:null,actions:null};
+let migPrev=null, migCurr=null, lastFile='';
+
+/* ================================================================
+   i18n HELPER
+   ================================================================ */
+const L = (en,zh) => lang==='en'?en:zh;
+
+/* ================================================================
+   UTILITY
+   ================================================================ */
+function parseDate(s){
+  if(!s||!s.trim())return null;
+  const p=s.trim().split('/');
+  if(p.length===3) return new Date(+p[2],+p[1]-1,+p[0]);
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function getTier(pv){if(pv<=TIER_BREAKS[0])return 0;if(pv<=TIER_BREAKS[1])return 1;if(pv<=TIER_BREAKS[2])return 2;if(pv<=TIER_BREAKS[3])return 3;return 4;}
+function pct(v){return v.toFixed(1)+'%'}
+function num(v){return v.toLocaleString()}
+
+/* ================================================================
+   CSV PROCESSING
+   ================================================================ */
+function processCSV(csv){
+  const res=Papa.parse(csv.trim(),{header:true,skipEmptyLines:true});
+  if(!res.data.length)return null;
+  const byM={};
+  for(const r of res.data){const m=(r.data_month||'').trim();if(!m)continue;(byM[m]=byM[m]||[]).push(r);}
+  const out={};
+  for(const [month,rows] of Object.entries(byM)){
+    const mm={};
+    for(const r of rows){
+      const id=r.ej_mid;if(!id)continue;
+      if(!mm[id])mm[id]={ej_mid:id,rds:r.member_createdate||'',tpv:0,apv:0,plats:new Set()};
+      mm[id].tpv+=parseInt(r.total_page_views)||0;
+      mm[id].apv+=parseInt(r.article_page_views)||0;
+      if(r.platform)mm[id].plats.add(r.platform);
+    }
+    out[month]={month,members:Object.values(mm).map(m=>{
+      const rd=parseDate(m.rds),ry=rd?rd.getFullYear():null,rm=rd?rd.getMonth()+1:null;
+      const ti=getTier(m.tpv),isNew=ry!==null&&ry>=NEW_YEAR;
+      let sub=null;
+      if(ti===0)sub=isNew?'New Inactive':'Churning Veteran';
+      else if(ti===1)sub=isNew?'New Explorer':'Declining Regular';
+      return{ej_mid:m.ej_mid,total_pv:m.tpv,article_pv:m.apv,article_ratio:m.tpv>0?m.apv/m.tpv:0,platforms:m.plats.size,regDate:rd,regYear:ry,regMonth:rm,isNew,tierIdx:ti,tier:TIER_NAMES[ti],subsegment:sub};
+    })};
+  }
+  return out;
+}
+
+function computeStats(members,dataMonth){
+  const total=members.length,totalPV=members.reduce((s,m)=>s+m.total_pv,0);
+  const [dmY,dmM]=dataMonth.split('-').map(Number);
+  const newThisMonth=members.filter(m=>m.regYear===dmY&&m.regMonth===dmM).length;
+  const cutoff=new Date(dmY,dmM-1-12,1);
+  const recent12m=members.filter(m=>m.regDate&&m.regDate>=cutoff).length;
+  const crossPlat=members.filter(m=>m.platforms>=2).length;
+  const pvs=members.map(m=>m.total_pv).sort((a,b)=>a-b),median=pvs[Math.floor(total/2)]||0;
+  const avgAR=total>0?members.reduce((s,m)=>s+m.article_ratio,0)/total:0;
+  const tiers=TIER_NAMES.map((name,i)=>{
+    const g=members.filter(m=>m.tierIdx===i),gn=g.filter(m=>m.isNew),gc=g.filter(m=>m.platforms>=2),gPV=g.reduce((s,m)=>s+m.total_pv,0);
+    return{name,idx:i,count:g.length,pct:total>0?g.length/total*100:0,newPct:g.length>0?gn.length/g.length*100:0,crossPct:g.length>0?gc.length/g.length*100:0,pvShare:totalPV>0?gPV/totalPV*100:0,avgAR:g.length>0?g.reduce((s,m)=>s+m.article_ratio,0)/g.length:0};
+  });
+  const subs={
+    'Churning Veteran':members.filter(m=>m.subsegment==='Churning Veteran'),
+    'New Inactive':members.filter(m=>m.subsegment==='New Inactive'),
+    'Declining Regular':members.filter(m=>m.subsegment==='Declining Regular'),
+    'New Explorer':members.filter(m=>m.subsegment==='New Explorer'),
+  };
+  return{total,totalPV,newThisMonth,recent12m,crossPlat,median,avgAR,tiers,subs};
+}
+
+/* ================================================================
+   DOWNLOAD SEGMENT CSV
+   ================================================================ */
+function dlSeg(key){
+  const mo=selMo.actions;if(!mo||!monthlyData[mo])return;
+  const all=monthlyData[mo].members;
+  let f;
+  if(key==='Moderate')f=all.filter(m=>m.tierIdx===2);
+  else if(key==='Power')f=all.filter(m=>m.tierIdx===4);
+  else f=all.filter(m=>m.subsegment===key);
+  if(!f||!f.length)return;
+  const rows=f.map(m=>({ej_mid:m.ej_mid,total_page_views:m.total_pv,article_page_views:m.article_pv,article_ratio:(m.article_ratio*100).toFixed(1)+'%',platforms:m.platforms,tier:m.tier,subsegment:m.subsegment||m.tier}));
+  const csv=Papa.unparse(rows);
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`${key.replace(/\s+/g,'-').toLowerCase()}_${mo}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+window.dlSeg=dlSeg;
+
+/* ================================================================
+   RENDER: STATIC SHELL
+   ================================================================ */
+function renderShell(){
+  document.title=L('Subscriber Engagement Segmentation','訂閱者活躍度分層分析');
+  document.getElementById('langToggle').textContent=lang==='en'?'中文':'EN';
+  document.getElementById('hTitle').textContent=L('Subscriber Engagement Segmentation','訂閱者活躍度分層分析');
+  if(!sortedMonths.length) document.getElementById('hSub').textContent=L('Upload CSV to begin · K-Means validated breakpoints [10, 70, 300, 1000]','上載 CSV 開始分析 · K-Means 驗證斷點 [10, 70, 300, 1000]');
+  document.getElementById('tabBar').innerHTML=[
+    ['upload','📁',L('Upload','上載數據')],
+    ['overview','📊',L('Overview','分層總覽')],
+    ['actions','🚀',L('Actions','行動建議')],
+    ['migration','🔄',L('Migration','月度遷移')]
+  ].map(([id,ico,label])=>`<button class="tab ${curTab===id?'active':''}" data-tab="${id}" onclick="switchTab('${id}')">${ico} ${label}</button>`).join('');
+  renderUploadPane();
+}
+
+function renderUploadPane(){
+  const fp=lastFile?buildPill():'';
+  document.getElementById('uploadPane').innerHTML=`
+    <div class="upload-zone" id="dropZone" onclick="document.getElementById('csvInput').click()">
+      <h2>📂 ${L('Drag & Drop or Click to Upload CSV','拖放或點擊上載 CSV')}</h2>
+      <p>${L('Format','格式')}: ej_mid, member_createdate, data_month, platform, total_page_views, article_page_views</p>
+      <p style="margin-top:8px;font-size:12px;color:var(--muted)">${L('CSV may contain multiple months (auto-split by data_month)','CSV 可包含多個月份（透過 data_month 自動拆分）')}</p>
+      <input type="file" id="csvInput" accept=".csv"><div id="filePill">${fp}</div>
+    </div>
+    <div class="card">
+      <h3>${L('Instructions','使用說明')}</h3><div class="sub">${L('One CSV for all analyses','一個 CSV 完成所有分析')}</div>
+      <p><strong style="color:var(--text)">① ${L('Single month:','單月：')}</strong> ${L('CSV with one data_month — shows full analysis.','CSV 只有一個 data_month → 顯示完整分析。')}</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">② ${L('Multiple months:','多月：')}</strong> ${L('Switch months per tab; Migration compares any two.','各 tab 可切換月份；「遷移」可比較任意兩月。')}</p>
+      <p style="margin-top:8px"><strong style="color:var(--text)">③ ${L('Privacy:','隱私：')}</strong> ${L('All calculations run locally. No data leaves your browser.','所有計算在瀏覽器本地完成，數據不會上傳。')}</p>
+    </div>`;
+  bindUpload();
+}
+
+function buildPill(){
+  const n=Object.values(monthlyData).reduce((s,d)=>s+d.members.length,0);
+  return `<div class="file-pill">📄 ${lastFile} <span style="color:var(--muted);font-weight:400">${sortedMonths.length} ${L('month(s)','個月份')} · ${num(n)} ${L('records','筆記錄')}</span></div>`;
+}
+
+function updateSubtitle(){
+  const latest=sortedMonths[sortedMonths.length-1];
+  document.getElementById('hSub').textContent=sortedMonths.length===1
+    ?`${latest} · ${num(monthlyData[latest].members.length)} ${L('subscribers','位訂閱者')} · ${L('Breakpoints','斷點')} [${TIER_BREAKS.join(', ')}]`
+    :`${sortedMonths[0]} – ${latest} (${sortedMonths.length} ${L('months','個月')}) · ${L('Breakpoints','斷點')} [${TIER_BREAKS.join(', ')}]`;
+}
+
+/* ================================================================
+   RENDER: MONTH SELECTOR
+   ================================================================ */
+function renderMonthSel(months,sel,fn,cid){
+  const el=document.getElementById(cid);
+  if(months.length<=1){el.innerHTML='';return;}
+  el.innerHTML=`<div class="month-selector"><label>${L('Select month:','選擇月份：')}</label>${months.map(m=>`<button class="month-btn ${m===sel?'active':''}" onclick="${fn}('${m}')">${m}</button>`).join('')}</div>`;
+}
+
+/* ================================================================
+   RENDER: OVERVIEW
+   ================================================================ */
+function renderOverview(st,month){
+  const ti=st.tiers;
+  return `
+  <div class="stats">
+    <div class="stat"><div class="stat-label">${L('Total Subscribers','總訂閱者')}</div><div class="stat-value">${num(st.total)}</div><div class="stat-sub">${month}</div></div>
+    <div class="stat"><div class="stat-label">${L('New This Month','本月新用戶')}</div><div class="stat-value" style="color:var(--new-user)">${num(st.newThisMonth)}</div><div class="stat-sub">${L('Registered in','註冊於')} ${month}</div></div>
+    <div class="stat"><div class="stat-label">${L('Recent 12m','近12月新用戶')}</div><div class="stat-value" style="color:var(--active)">${num(st.recent12m)}</div><div class="stat-sub">${pct(st.total>0?st.recent12m/st.total*100:0)} ${L('of total','佔總數')}</div></div>
+    <div class="stat"><div class="stat-label">${L('Median PV','中位數 PV')}</div><div class="stat-value">${num(st.median)}</div><div class="stat-sub">${L('Per user / month','每人每月')}</div></div>
+    <div class="stat"><div class="stat-label">${L('Cross-Platform','跨平台')}</div><div class="stat-value">${pct(st.crossPlat/st.total*100)}</div><div class="stat-sub">App + Web</div></div>
+  </div>
+  <div class="card"><h3>${L('Five-Tier Engagement Model','五級活躍度模型')}</h3><div class="sub">${L('Breakpoints','斷點')} [${TIER_BREAKS.join(', ')}]</div>
+    <div class="tier-bars">${ti.map((t,i)=>`<div class="tier-row"><div class="tier-label"><div class="tier-name" style="color:${TIER_COLORS[i]}">${t.name}</div><div class="tier-range">${TIER_RANGES[i]}</div></div><div class="tier-bar-wrap"><div class="tier-bar" style="width:${Math.max(t.pct,3)}%;background:${TIER_GRADS[i]}"><span>${num(t.count)}</span></div></div><div class="tier-pct">${pct(t.pct)}</div></div>`).join('')}</div>
+  </div>
+  <div class="two-col">
+    <div class="card"><h3>${L('Traffic Contribution','流量貢獻佔比')}</h3><div class="sub">${L("Each tier's share of total PV",'各層對總 PV 的貢獻')}</div>
+      ${ti.map((t,i)=>`<div class="contrib-row"><div class="contrib-label">${t.name}</div><div class="contrib-bar-wrap"><div class="contrib-bar" style="width:${Math.max(t.pvShare,2)}%;background:${TIER_COLORS[i]}"><span>${t.pvShare>8?pct(t.pvShare):''}</span></div></div><div class="contrib-pct">${pct(t.pvShare)}</div></div>`).join('')}
+      <p style="margin-top:14px;font-size:12px">${L(`Power users are ${pct(ti[4].pct)} of users but contribute`,`Power 佔 ${pct(ti[4].pct)} 人數，貢獻了`)} <strong style="color:var(--text)">${pct(ti[4].pvShare)}</strong> ${L('of total traffic.','的總流量。')}</p>
+    </div>
+    <div class="card"><h3>${L('New User Ratio by Tier','各層新用戶比例')}</h3><div class="sub">${L(`New users (${NEW_YEAR}+) in each tier`,`新用戶（${NEW_YEAR}+）在各層佔比`)}</div>
+      ${ti.map(t=>`<div class="contrib-row"><div class="contrib-label">${t.name}</div><div class="contrib-bar-wrap"><div class="contrib-bar" style="width:${Math.max(t.newPct,1)}%;background:var(--new-user)"><span></span></div></div><div class="contrib-pct">${pct(t.newPct)}</div></div>`).join('')}
+    </div>
+  </div>
+  <div class="card"><h3>${L('Cross-Platform vs Engagement','跨平台使用 vs 活躍度')}</h3><div class="sub">${L('Users on both App + Web','同時使用 App + Web 的比例')}</div>
+    ${ti.map(t=>`<div class="contrib-row"><div class="contrib-label">${t.name}</div><div class="contrib-bar-wrap"><div class="contrib-bar" style="width:${Math.max(t.crossPct,1)}%;background:var(--accent)"><span>${t.crossPct>15?pct(t.crossPct):''}</span></div></div><div class="contrib-pct">${pct(t.crossPct)}</div></div>`).join('')}
+  </div>`;
+}
+
+/* ================================================================
+   RENDER: ACTIONS (merged Low-Activity + Actions)
+   ================================================================ */
+function renderActions(st,members){
+  const ti=st.tiers;
+  const totalLow=['Churning Veteran','New Inactive','Declining Regular','New Explorer'].reduce((s,k)=>s+st.subs[k].length,0);
+  const groups=[
+    {key:'New Inactive',pri:'🥇',icon:'🟣',color:'var(--new-user)',badge:'new',
+     name:L('New Inactive','未啟動新用戶'),sub:L('Dormant · New user','Dormant 層 · 新用戶'),
+     action:L('Fix Onboarding','修補 Onboarding'),
+     desc:L('Barely used after sign-up. Analyze sign-up channels → Day 1/3/7 automated onboarding → Track Day-7/30 retention.','註冊後幾乎無使用。分析註冊渠道 → 設計 Day 1/3/7 自動引導 → 追蹤 Day-7/30 留存率。'),
+     m:st.subs['New Inactive']},
+    {key:'Declining Regular',pri:'🥈',icon:'🟠',color:'var(--low)',badge:'old',
+     name:L('Declining Regular','淺層老用戶'),sub:L('Low · Existing user','Low 層 · 舊用戶'),
+     action:L('Re-engagement','Re-engagement'),
+     desc:L('Visits but uses little. Segment by article ratio for push strategy; A/B test re-engagement messages.','有來但用得少。用 article ratio 分流推送，A/B 測試 re-engagement 訊息。'),
+     m:st.subs['Declining Regular']},
+    {key:'Moderate',pri:'🥉',icon:'📈',color:'var(--moderate)',badge:'tier',
+     name:L('Moderate → Active','Moderate → Active'),sub:L('Moderate · Push up','Moderate 層 · 推向 Active'),
+     action:L('Push to Active','推動升級'),
+     desc:L(`Encourage cross-platform (currently ${pct(ti[2].crossPct)} dual) → reading achievement milestones.`,`鼓勵跨平台使用（目前 ${pct(ti[2].crossPct)} 雙平台）→ 閱讀成就機制。`),
+     m:members.filter(m=>m.tierIdx===2)},
+    {key:'Churning Veteran',pri:'④',icon:'🔴',color:'var(--dormant)',badge:'old',
+     name:L('Churning Veteran','流失老用戶'),sub:L('Dormant · Existing user','Dormant 層 · 舊用戶'),
+     action:L('Reactivation','再激活'),
+     desc:L('PV ≤ 10, long-standing users — nearly churned. Personalized push/email to win them back.','月 PV ≤ 10 的舊用戶，幾乎已流失。建議 push / email 個人化推薦嘗試拉回。'),
+     m:st.subs['Churning Veteran']},
+    {key:'New Explorer',pri:'⑤',icon:'🔮',color:'#7c3aed',badge:'new',
+     name:L('New Explorer','探索中新用戶'),sub:L('Low · New user','Low 層 · 新用戶'),
+     action:L('Nurture','培育'),
+     desc:L('Some usage, no habit. Guide content discovery, set preferences, milestone rewards.','有使用但未養成習慣。引導發現更多內容、設計里程碑獎勵。'),
+     m:st.subs['New Explorer']},
+    {key:'Power',pri:'🛡️',icon:'⚡',color:'var(--power)',badge:'tier',
+     name:L('Retain Power Users','維護 Power User'),sub:L('Power · Protect','Power 層 · 防流失'),
+     action:L('Retention','留存維護'),
+     desc:L(`They contribute ${pct(ti[4].pvShare)} of traffic. PV drop >30% alerts → VIP rewards, exclusive content.`,`貢獻了 ${pct(ti[4].pvShare)} 總流量。建立 PV 下降 >30% 預警 → VIP 回饋、專屬內容。`),
+     m:members.filter(m=>m.tierIdx===4)},
+  ];
+  const badge=(b)=>b==='new'?`<span class="indicator new">${L('New','新用戶')}</span>`:b==='old'?`<span class="indicator old">${L('Existing','舊用戶')}</span>`:`<span class="indicator tier-i">${L('Full Tier','全層')}</span>`;
+  return `
+  <div class="highlight green">
+    <h3 style="font-size:15px;font-weight:700;color:var(--active);margin-bottom:8px">${L('Prioritized Action Plan','優先級行動建議')}</h3>
+    <p style="font-size:13px;color:var(--muted)">${L(`Dormant + Low: ${num(totalLow)} users (${pct(totalLow/st.total*100)}). 6 action groups by priority — each with downloadable member list.`,`Dormant + Low 共 ${num(totalLow)} 人（${pct(totalLow/st.total*100)}）。以下 6 組行動建議按優先級排列，每組可下載成員名單。`)}</p>
+  </div>
+  <div class="seg-grid">${groups.map(g=>{
+    const cnt=g.m.length,ar=cnt>0?(g.m.reduce((a,m)=>a+m.article_ratio,0)/cnt*100).toFixed(0):0;
+    return `
+    <div class="seg-card" style="border-top-color:${g.color}">
+      <div class="seg-header">
+        <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:18px">${g.pri}</span><span style="font-size:20px">${g.icon}</span></div>
+          <div class="seg-name" style="color:${g.color}">${g.name}</div><div class="seg-name-en">${g.sub}</div></div>
+        <div style="text-align:right"><div class="seg-count">${num(cnt)}</div><div class="seg-meta">${badge(g.badge)}</div></div>
+      </div>
+      <div class="seg-action">${L('Action:','建議：')} ${g.action}</div>
+      <div class="seg-desc">${g.desc}</div>
+      <div class="seg-footer">
+        <div class="meta">${L('Avg Article Ratio:','平均 Article Ratio：')} ${ar}%</div>
+        <button class="dl-btn" onclick="dlSeg('${g.key}')">📥 ${L('Download','下載')} CSV (${num(cnt)})</button>
+      </div>
+    </div>`;}).join('')}
+  </div>
+  <div class="highlight amber" style="margin-top:18px">
+    <h3 style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px">💡 Article Ratio</h3>
+    <p style="font-size:13px;color:var(--muted)">${L('Overall avg:','整體平均：')} ${(st.avgAR*100).toFixed(0)}% | Power: ${(ti[4].avgAR*100).toFixed(0)}% | Dormant: ${(ti[0].avgAR*100).toFixed(0)}%</p>
+  </div>`;
+}
+
+/* ================================================================
+   RENDER: MIGRATION
+   ================================================================ */
+function renderMigMatrix(){
+  if(!migPrev||!migCurr||migPrev===migCurr){document.getElementById('mig-content').innerHTML=`<p class="empty-state">${L('Please select two different months','請選擇兩個不同的月份')}</p>`;return;}
+  const prev=monthlyData[migPrev],curr=monthlyData[migCurr];if(!prev||!curr)return;
+  const pm={},cm={};
+  for(const m of prev.members)pm[m.ej_mid]=m.tierIdx;
+  for(const m of curr.members)cm[m.ej_mid]=m.tierIdx;
+  const ids=new Set([...Object.keys(pm),...Object.keys(cm)]);
+  const mx=Array.from({length:5},()=>Array(5).fill(0));
+  let nb=Array(5).fill(0),lb=Array(5).fill(0),ret=0;
+  for(const id of ids){const p=pm[id],c=cm[id];if(p!==undefined&&c!==undefined){mx[p][c]++;ret++;}else if(p!==undefined)lb[p]++;else nb[c]++;}
+  let up=0,dn=0,same=0;
+  for(let f=0;f<5;f++)for(let t=0;t<5;t++){if(t>f)up+=mx[f][t];else if(t<f)dn+=mx[f][t];else same+=mx[f][t];}
+  const tn=nb.reduce((a,b)=>a+b,0),tl=lb.reduce((a,b)=>a+b,0);
+  let h=`<div class="card"><h3>🔄 ${L('Monthly Migration Matrix','月度遷移矩陣')}</h3><div class="sub">${migPrev} → ${migCurr}</div>
+  <p style="margin-bottom:16px">${L('Row = previous month, Column = current. Diagonal = retained.','行 = 上月，列 = 本月。對角線 = 留存。')} ${L('Upper-right =','右上 =')} <span style="color:var(--active)">${L('upgraded','升級')}</span>, ${L('Lower-left =','左下 =')} <span style="color:var(--dormant)">${L('downgraded','降級')}</span>.</p>
+  <table class="mig-table"><thead><tr><th>${migPrev} \\ ${migCurr}</th>${TIER_NAMES.map(n=>`<th>${n}</th>`).join('')}<th>${L('Churned','流失')}</th><th>${L('Total','合計')}</th></tr></thead><tbody>`;
+  for(let f=0;f<5;f++){const rt=mx[f].reduce((a,b)=>a+b,0)+lb[f];h+=`<tr><td>${TIER_NAMES[f]}</td>`;for(let t=0;t<5;t++){const v=mx[f][t],cls=f===t?'highlight-cell':t>f?'up':'down';h+=`<td class="${cls}">${v||'-'}</td>`;}h+=`<td class="down">${lb[f]||'-'}</td><td style="color:var(--text);font-weight:600">${num(rt)}</td></tr>`;}
+  h+=`<tr><td style="color:var(--active)">${L('New','新進')}</td>${nb.map(v=>`<td class="up">${v||'-'}</td>`).join('')}<td>-</td><td style="color:var(--active);font-weight:600">${num(tn)}</td></tr></tbody></table></div>`;
+  h+=`<div class="stats">
+    <div class="stat"><div class="stat-label">${L('Retained','留在同層')}</div><div class="stat-value" style="color:var(--muted)">${num(same)}</div><div class="stat-sub">${ret>0?pct(same/ret*100):'-'}</div></div>
+    <div class="stat"><div class="stat-label">${L('Upgraded','升級')} ↑</div><div class="stat-value" style="color:var(--active)">${num(up)}</div><div class="stat-sub">${ret>0?pct(up/ret*100):'-'}</div></div>
+    <div class="stat"><div class="stat-label">${L('Downgraded','降級')} ↓</div><div class="stat-value" style="color:var(--dormant)">${num(dn)}</div><div class="stat-sub">${ret>0?pct(dn/ret*100):'-'}</div></div>
+    <div class="stat"><div class="stat-label">${L('New','新進')}</div><div class="stat-value" style="color:var(--active)">${num(tn)}</div><div class="stat-sub">${L('Not in prev month','上月無記錄')}</div></div>
+    <div class="stat"><div class="stat-label">${L('Churned','流失')}</div><div class="stat-value" style="color:var(--dormant)">${num(tl)}</div><div class="stat-sub">${L('Not in curr month','本月無記錄')}</div></div>
+  </div>
+  <div class="highlight amber"><h3 style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px">${L('How to Read','如何解讀')}</h3><p style="font-size:13px;color:var(--muted)"><strong style="color:var(--text)">${L('Larger diagonal = better','對角線越大越好')}</strong> ${L('(stable). Watch Active/Power downgrades and Power churns. Analyze upgrades to replicate success.','（穩定）。關注 Active/Power 降級及 Power 流失。分析升級者的成功原因。')}</p></div>`;
+  document.getElementById('mig-content').innerHTML=h;
+}
+
+function renderMigSel(months){
+  const c=document.getElementById('mig-selectors');
+  if(months.length<2){c.innerHTML='';document.getElementById('mig-content').innerHTML=`<p class="empty-state">${L('At least two months required','需要至少兩個月份')}</p>`;return;}
+  migPrev=migPrev||months[months.length-2];migCurr=migCurr||months[months.length-1];
+  c.innerHTML=`<div class="migration-selectors"><label style="font-size:13px;color:var(--muted);font-weight:600">${L('Previous:','上月：')}</label><select id="migPrevSel" onchange="onMigChg()">${months.map(m=>`<option value="${m}" ${m===migPrev?'selected':''}>${m}</option>`).join('')}</select><span class="arrow">→</span><label style="font-size:13px;color:var(--muted);font-weight:600">${L('Current:','本月：')}</label><select id="migCurrSel" onchange="onMigChg()">${months.map(m=>`<option value="${m}" ${m===migCurr?'selected':''}>${m}</option>`).join('')}</select></div>`;
+  renderMigMatrix();
+}
+
+/* ================================================================
+   MONTH HANDLERS
+   ================================================================ */
+function selOv(m){selMo.overview=m;renderMonthSel(sortedMonths,m,'selOv','ov-month-sel');document.getElementById('ov-content').innerHTML=renderOverview(computeStats(monthlyData[m].members,m),m);}
+function selAc(m){selMo.actions=m;renderMonthSel(sortedMonths,m,'selAc','ac-month-sel');document.getElementById('ac-content').innerHTML=renderActions(computeStats(monthlyData[m].members,m),monthlyData[m].members);}
+function onMigChg(){migPrev=document.getElementById('migPrevSel').value;migCurr=document.getElementById('migCurrSel').value;renderMigMatrix();}
+window.selOv=selOv;window.selAc=selAc;window.onMigChg=onMigChg;
+
+/* ================================================================
+   FILE HANDLING
+   ================================================================ */
+function bindUpload(){
+  const dz=document.getElementById('dropZone'),ci=document.getElementById('csvInput');
+  if(!dz||!ci)return;
+  ci.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+}
+
+function handleFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const data=processCSV(e.target.result);
+    if(!data||!Object.keys(data).length){alert(L('Unable to parse CSV. Please check the format.','無法解析 CSV，請檢查格式。'));return;}
+    monthlyData=data;sortedMonths=Object.keys(monthlyData).sort();lastFile=file.name;
+    document.getElementById('filePill').innerHTML=buildPill();
+    const latest=sortedMonths[sortedMonths.length-1];
+    selMo={overview:latest,actions:latest};
+    migPrev=sortedMonths.length>=2?sortedMonths[sortedMonths.length-2]:null;
+    migCurr=sortedMonths.length>=2?latest:null;
+    updateSubtitle();
+    const st=computeStats(monthlyData[latest].members,latest);
+    renderMonthSel(sortedMonths,latest,'selOv','ov-month-sel');
+    document.getElementById('ov-content').innerHTML=renderOverview(st,latest);
+    renderMonthSel(sortedMonths,latest,'selAc','ac-month-sel');
+    document.getElementById('ac-content').innerHTML=renderActions(st,monthlyData[latest].members);
+    renderMigSel(sortedMonths);
+    switchTab('overview');
+  };
+  reader.readAsText(file);
+}
+
+/* ================================================================
+   TAB SWITCHING
+   ================================================================ */
+function switchTab(id){
+  curTab=id;
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  const btn=document.querySelector(`.tab[data-tab="${id}"]`);if(btn)btn.classList.add('active');
+}
+window.switchTab=switchTab;
+
+/* ================================================================
+   LANG TOGGLE
+   ================================================================ */
+function toggleLang(){
+  lang=lang==='en'?'zh':'en';
+  renderShell();
+  if(sortedMonths.length){
+    updateSubtitle();
+    const o=selMo.overview,a=selMo.actions;
+    if(o){renderMonthSel(sortedMonths,o,'selOv','ov-month-sel');document.getElementById('ov-content').innerHTML=renderOverview(computeStats(monthlyData[o].members,o),o);}
+    if(a){renderMonthSel(sortedMonths,a,'selAc','ac-month-sel');document.getElementById('ac-content').innerHTML=renderActions(computeStats(monthlyData[a].members,a),monthlyData[a].members);}
+    renderMigSel(sortedMonths);
+  } else {
+    document.getElementById('ov-content').innerHTML=`<p class="empty-state">${L('Please upload a CSV first','請先上載 CSV')}</p>`;
+    document.getElementById('ac-content').innerHTML=`<p class="empty-state">${L('Please upload a CSV first','請先上載 CSV')}</p>`;
+    document.getElementById('mig-content').innerHTML=`<p class="empty-state">${L('CSV must contain at least two data_month values','需要包含至少兩個 data_month 的 CSV')}</p>`;
+  }
+}
+window.toggleLang=toggleLang;
+
+/* ================================================================
+   INIT
+   ================================================================ */
+renderShell();
+document.getElementById('ov-content').innerHTML=`<p class="empty-state">${L('Please upload a CSV first','請先上載 CSV')}</p>`;
+document.getElementById('ac-content').innerHTML=`<p class="empty-state">${L('Please upload a CSV first','請先上載 CSV')}</p>`;
+document.getElementById('mig-content').innerHTML=`<p class="empty-state">${L('CSV must contain at least two data_month values','需要包含至少兩個 data_month 的 CSV')}</p>`;
+</script>
+</body>
+</html>
